@@ -1,0 +1,6 @@
+const router = require("express").Router()
+const productController = require("../controllers/ProductController")
+const upload = require("../middlewares/uploadMiddleware")
+router.post("/",upload.array("images",5),productController.createProduct)
+router.get("/",productController.getAllProducts)
+module.exports = router

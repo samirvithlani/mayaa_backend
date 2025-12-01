@@ -16,7 +16,13 @@ const authRoutes = require("./src/routes/AuthRoutes")
 app.use("/auth",authRoutes)
 const roleRoutes = require("./src/routes/RoleRoutes")
 app.use("/role",roleRoutes)
+const productCategoryRoutes = require("./src/routes/ProductCategoryRoutes")
+app.use("/product-category",productCategoryRoutes)
+const productSubCategoryRoutes = require("./src/routes/ProductSubCategoryRoutes")
+app.use("/product-sub-category",productSubCategoryRoutes)
 
+const productRoutes = require("./src/routes/ProductRoutes")
+app.use("/product",productRoutes)
 const PORT = config.PORT || 3000
 app.listen(PORT,()=>{
     console.log(`server started on port ${PORT}`);

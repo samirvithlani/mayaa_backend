@@ -12,7 +12,7 @@ module.exports = {
   PORT: process.env.PORT || 3000,
   DB_URL: process.env.DB_URL || "mongodb+srv://samir:samir@cluster0.key63fx.mongodb.net/mayya-development",
   VERIFY: process.env.VERIFY_URL,
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ||"dmzvebhyl",
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "233715149788265",
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ||"8aBUpEX0x-rxr0KgQjJwrLExrP0",
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ||"dhye5fli7",
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "149447439981939",
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ||"GAkVvR0PpdI4UQ-uyYunj8fE8dU",
 };
