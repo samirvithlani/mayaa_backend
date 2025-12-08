@@ -20,9 +20,16 @@ const productCategoryRoutes = require("./src/routes/ProductCategoryRoutes")
 app.use("/product-category",productCategoryRoutes)
 const productSubCategoryRoutes = require("./src/routes/ProductSubCategoryRoutes")
 app.use("/product-sub-category",productSubCategoryRoutes)
+const cartRoutes = require("./src/routes/UserCartRoutes")
+app.use("/cart",cartRoutes)
 
 const productRoutes = require("./src/routes/ProductRoutes")
 app.use("/product",productRoutes)
+
+const productImportRoutes = require("./src/routes/ProductImportRoutes");
+app.use("/productimport",productImportRoutes)
+
+
 const PORT = config.PORT || 3000
 app.listen(PORT,()=>{
     console.log(`server started on port ${PORT}`);

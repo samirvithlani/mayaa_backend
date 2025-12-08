@@ -8,6 +8,6 @@ cloudinary.config({
 });
 
 module.exports = cloudinary;
-cloudinary.api.ping()
-  .then(r => console.log("PING OK", r))
-  .catch(e => console.log("PING ERROR", e));
+// cloudinary.api.ping()
+//   .then(r => console.log("PING OK", r))
+//   .catch(e => console.log("PING ERROR", e));

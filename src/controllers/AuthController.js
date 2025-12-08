@@ -29,7 +29,7 @@ exports.signup = async (req, res) => {
     }
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await User.create({ firstName, lastName, email, contactNo, password: hashed });
+    const user = await User.create({ firstName, lastName, email, contactNo, password: hashed,roleId });
 
     // tokens
     const accessToken = generateAccessToken(user);
@@ -51,7 +51,7 @@ exports.loginWithEmail = async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: "email and password required" });
 
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email }).select("+password").populate("roleId")
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const ok = await bcrypt.compare(password, user.password);

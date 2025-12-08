@@ -4,7 +4,6 @@ const cloudinary = require("../config/cloudinaryConfig");
 // ✅ FIX for ProductController.js
 const fs = require("fs/promises");
 
-
 const createProduct = async (req, res) => {
   try {
     // 1. File validation
@@ -76,10 +75,9 @@ const createProduct = async (req, res) => {
   }
 };
 
-module.exports = { createProduct };
 const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find({ status: "active" });
+    const products = await Product.find();
     res
       .status(200)
       .json({ message: "Products fetched successfully", data: products });
@@ -104,4 +102,4 @@ const getProductById = async (req, res) => {
   }
 };
 
-module.exports = { createProduct,getAllProducts };
+module.exports = { createProduct,getAllProducts,getProductById };
