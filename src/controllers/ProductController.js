@@ -77,21 +77,122 @@ const createProduct = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find();
-    res
-      .status(200)
-      .json({ message: "Products fetched successfully", data: products });
+    let queryObj = {};
+    let {
+      search,
+      category,
+      subCategory,
+      minPrice,
+      maxPrice,
+      brand,
+      gender,
+      ageGroup,
+      tags,
+      isFeatured,
+      isNew,
+      isBestSeller,
+      isTopRated,
+      isOnSale,
+      isTrending,
+      sort,
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    // ---------- TEXT SEARCH ----------
+    if (search) {
+      queryObj.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { brand: { $regex: search, $options: "i" } },
+        { productTags: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // ---------- CATEGORY FILTER ----------
+    if (category) queryObj.productCategoryId = category;
+    if (subCategory) queryObj.productSubCategoryId = subCategory;
+
+    // ---------- PRICE RANGE ----------
+    if (minPrice || maxPrice) {
+      queryObj.price = {};
+      if (minPrice) queryObj.price.$gte = Number(minPrice);
+      if (maxPrice) queryObj.price.$lte = Number(maxPrice);
+    }
+
+    // ---------- SIMPLE FIELDS ----------
+    if (brand) queryObj.brand = { $regex: brand, $options: "i" };
+    if (gender) queryObj.gender = gender;
+    if (ageGroup) queryObj.ageGroup = ageGroup;
+
+    // ---------- TAGS ----------
+    if (tags) {
+      queryObj.productTags = { $in: tags.split(",") };
+    }
+
+    // ---------- FLAGS (true/false fields) ----------
+    const flagFields = {
+      isFeatured,
+      isNew,
+      isBestSeller,
+      isTopRated,
+      isOnSale,
+      isTrending,
+    };
+
+    Object.entries(flagFields).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryObj[key] = value === "true"; // convert to Boolean
+      }
+    });
+
+    // ---------- SORT ----------
+    let sortOption = {};
+    if (sort) {
+      // examples: sort = price, -price, createdAt, -rating.average
+      const parts = sort.split(",");
+      parts.forEach((field) => {
+        if (field.startsWith("-")) {
+          sortOption[field.substring(1)] = -1;
+        } else {
+          sortOption[field] = 1;
+        }
+      });
+    } else {
+      sortOption = { createdAt: -1 }; // default latest first
+    }
+
+    // ---------- PAGINATION ----------
+    page = Number(page);
+    limit = Number(limit);
+    const skip = (page - 1) * limit;
+
+    // ---------- EXECUTE QUERY ----------
+    const products = await Product.find(queryObj)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Product.countDocuments(queryObj);
+
+    res.status(200).json({
+      message: "Products fetched successfully",
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      data: products,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching products", error: error.message });
+    console.log(error)
+    res.status(500).json({
+      message: "Error fetching products",
+      error: error.message,
+    });
   }
 };
+
 const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).where({
-      status: "active",
-    });
+    const product = await Product.findById(req.params.id).where({});
     res
       .status(200)
       .json({ message: "Product fetched successfully", data: product });

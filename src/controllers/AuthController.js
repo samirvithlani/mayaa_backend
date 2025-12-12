@@ -358,3 +358,68 @@ exports.logout = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+exports.getAllUsers = async (req, res) => {
+  try {
+    // ✅ 1. Read Query Params
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      roleId,
+      sortBy = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    // ✅ 2. Build Filter Object
+    const filter = {};
+
+    // Search by name, email, contact
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { contactNo: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Filter by Role
+    if (roleId) {
+      filter.roleId = roleId;
+    }
+
+    // ✅ 3. Pagination Logic
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // ✅ 4. Fetch Users
+    const users = await User.find(filter)
+      .select("-password -otp") // extra safety
+      .populate("roleId", "name")
+      .sort({ [sortBy]: order === "asc" ? 1 : -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    // ✅ 5. Total Count
+    const totalUsers = await User.countDocuments(filter);
+
+    // ✅ 6. Response
+    return res.status(200).json({
+      success: true,
+      message: "Users fetched successfully",
+      total: totalUsers,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(totalUsers / limit),
+      users,
+    });
+
+  } catch (error) {
+    console.error("Get All Users Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching users",
+      error: error.message,
+    });
+  }
+};
+

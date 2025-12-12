@@ -1,28 +1,37 @@
 const { Worker } = require("bullmq");
-//const redis = require("../config/redis");
 const Product = require("../models/ProductModel");
 const { Redis } = require("ioredis");
+const mongoose = require("mongoose");
 const dbConnection = require("../utils/Db");
 dbConnection();
-const redis = new Redis(
-  "rediss://red-cujm3nt2ng1s73b92o1g:L7RB5dQeIHEPOURTniYt21LJscQBO2wO@oregon-keyvalue.render.com:6379",
-  {
-    maxRetriesPerRequest: null,
-  }
-);
+
+// Redis connection
+const redis = new Redis("rediss://red-cujm3nt2ng1s73b92o1g:L7RB5dQeIHEPOURTniYt21LJscQBO2wO@oregon-keyvalue.render.com:6379", {
+  maxRetriesPerRequest: null,
+  tls: {},
+});
+
 const BATCH_SIZE = 100;
 
-function safeJSON(str, fallback) {
+// Convert strings into ObjectId
+function toObjectId(id) {
+  if (!id) return null;
+
+  id = id.toString().replace(/ObjectId\(['"](.+)['"]\)/, "$1");
+  return new mongoose.Types.ObjectId(id);
+}
+
+function safeJSON(val, fallback) {
   try {
-    return JSON.parse(str);
+    return typeof val === "string" ? JSON.parse(val) : val;
   } catch {
     return fallback;
   }
 }
+
 function safeArray(val) {
   if (!val) return [];
-  if (typeof val === "string") return val.split(",").map((v) => v.trim());
-  return val;
+  return typeof val === "string" ? val.split(",").map((x) => x.trim()) : val;
 }
 
 const worker = new Worker(
@@ -33,69 +42,64 @@ const worker = new Worker(
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
       const batch = rows.slice(i, i + BATCH_SIZE);
 
-      await Promise.all(
-        batch.map(async (row) => {
-          try {
-            await Product.create({
-              name: row.name,
-              description: row.description,
-              productCategoryId: row.productCategoryId,
-              productSubCategoryId: row.productSubCategoryId,
-              price: row.price,
-              discountPercentage: row.discountPercentage || 0,
-              brand: row.brand,
-              material: row.material,
-              fitType: row.fitType,
-              weight: row.weight,
-              dimensions: row.dimensions,
-              ageGroup: row.ageGroup,
-              gender: row.gender,
+      for (const row of batch) {
+        try {
+          await Product.create({
+            name: row.name,
+            description: row.description,
 
-              colors: safeJSON(row.colors, []),
-              sizes: safeJSON(row.sizes, []),
+            productCategoryId: toObjectId(row.productCategoryId),
+            productSubCategoryId: toObjectId(row.productSubCategoryId),
 
-              productTags: safeArray(row.productTags),
-              highlights: safeArray(row.highlights),
-              careInstructions: safeArray(row.careInstructions),
+            price: row.price,
+            discountPercentage: row.discountPercentage || 0,
+            brand: row.brand,
+            material: row.material,
+            fitType: row.fitType,
+            weight: row.weight,
+            dimensions: row.dimensions,
+            ageGroup: row.ageGroup,
+            gender: row.gender,
 
-              // ❌ images removed
+            colors: safeJSON(row.colors, []),
+            sizes: safeJSON(row.sizes, []),
 
-              sku: row.sku,
+            productTags: safeArray(row.productTags),
+            highlights: safeArray(row.highlights),
+            careInstructions: safeArray(row.careInstructions),
 
-              // Status booleans
-              isFeatured: row.isFeatured || false,
-              isNew: row.isNew || false,
-              isBestSeller: row.isBestSeller || false,
-              isTopRated: row.isTopRated || false,
-              isOnSale: row.isOnSale || false,
-              isTrending: row.isTrending || false,
+            sku: row.sku,
 
-              collection: row.collection,
-              season: row.season,
+            isFeatured: row.isFeatured || false,
+            isNew: row.isNew || false,
+            isBestSeller: row.isBestSeller || false,
+            isTopRated: row.isTopRated || false,
+            isOnSale: row.isOnSale || false,
+            isTrending: row.isTrending || false,
 
-              returnPolicy: {
-                returnable: row.returnable ?? true,
-                days: row.returnDays ?? 7,
-              },
+            collection: row.collection,
+            season: row.season,
 
-              deliveryInfo: {
-                shippingCharge: row.shippingCharge || 0,
-                estimatedDays: row.estimatedDays || 0,
-              },
+            returnPolicy: {
+              returnable: row.returnable ?? true,
+              days: row.returnDays ?? 7,
+            },
 
-              metaTitle: row.metaTitle,
-              metaDescription: row.metaDescription,
-              metaKeywords: safeArray(row.metaKeywords),
-            });
-          } catch (err) {
-            console.log("Row import error:", err.message);
-          }
-        })
-      );
+            deliveryInfo: {
+              shippingCharge: row.shippingCharge || 0,
+              estimatedDays: row.estimatedDays || 0,
+            },
 
-      await job.updateProgress(
-        Math.min(((i + BATCH_SIZE) / rows.length) * 100, 100)
-      );
+            metaTitle: row.metaTitle,
+            metaDescription: row.metaDescription,
+            metaKeywords: safeArray(row.metaKeywords),
+          });
+        } catch (err) {
+          console.log("Row import error:", err.message);
+        }
+      }
+
+      await job.updateProgress(Math.min(((i + BATCH_SIZE) / rows.length) * 100, 100));
     }
 
     return { message: "Import completed", total: rows.length };
@@ -103,10 +107,5 @@ const worker = new Worker(
   { connection: redis }
 );
 
-worker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed successfully.`);
-});
-
-worker.on("failed", (job, err) => {
-  console.log(`Job ${job.id} failed: ${err.message}`);
-});
+worker.on("completed", (job) => console.log(`Job ${job.id} completed successfully.`));
+worker.on("failed", (job, err) => console.log(`Job ${job.id} failed: ${err.message}`));

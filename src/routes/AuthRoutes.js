@@ -21,4 +21,7 @@ router.post("/password/reset-with-otp", auth.resetPasswordWithOtp);
 router.post("/token/refresh", auth.refreshToken);
 router.post("/logout", auth.logout);
 
+router.get("/users",auth.getAllUsers)
+//router.get("/user/:id",auth)
+
 module.exports = router;

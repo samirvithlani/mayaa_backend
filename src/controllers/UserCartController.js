@@ -152,20 +152,23 @@ exports.removeCartItem = async (req, res) => {
     const cart = await Cart.findOne({ userId });
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
-    const item = cart.items.id(itemId);
-    if (!item) return res.status(404).json({ message: "Item not found" });
+    // Remove item manually (safe method)
+    cart.items = cart.items.filter(
+      (i) => i._id.toString() !== itemId.toString()
+    );
 
-    item.remove();
     await cart.save();
 
     return res.status(200).json({
       message: "Item removed",
       cart,
     });
+
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 };
+
 
 // -------------------------------------------
 // CLEAR CART
