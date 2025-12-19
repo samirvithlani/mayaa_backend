@@ -47,6 +47,7 @@ const createProduct = async (req, res) => {
     // 4. Create product
     const product = await Product.create({
       ...req.body,
+      isLive:true,
       images: uploadedImages.map((img) => img.secure_url),
     });
 
@@ -97,6 +98,7 @@ const getAllProducts = async (req, res) => {
       sort,
       page = 1,
       limit = 20,
+      isLive
     } = req.query;
 
     // ---------- TEXT SEARCH ----------
@@ -137,6 +139,7 @@ const getAllProducts = async (req, res) => {
       isTopRated,
       isOnSale,
       isTrending,
+      isLive
     };
 
     Object.entries(flagFields).forEach(([key, value]) => {
@@ -203,4 +206,184 @@ const getProductById = async (req, res) => {
   }
 };
 
-module.exports = { createProduct,getAllProducts,getProductById };
+const goLiveSingleProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const product = await Product.findByIdAndUpdate(
+      productId,
+      { isLive: true },
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Product is live now"
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+const goLiveBulkProducts = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+
+    if (!productIds || productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Product IDs required"
+      });
+    }
+
+    const result = await Product.updateMany(
+      { _id: { $in: productIds } },
+      { $set: { isLive: true } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `${result.modifiedCount} products are live now`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+/**
+ * UPDATE PRODUCT (EXCEPT IMAGES)
+ * PUT /api/product/:id
+ */
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ❌ Remove images from update if sent
+    if (req.body.images) {
+      delete req.body.images;
+    }
+
+    // ❌ Prevent SKU overwrite if needed (optional)
+    // delete req.body.sku;
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      {
+        $set: req.body, // partial update
+      },
+      {
+        new: true,       // return updated doc
+        runValidators: true,
+      }
+    )
+      .populate("productCategoryId", "name")
+      .populate("productSubCategoryId", "name");
+
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      data: updatedProduct,
+    });
+  } catch (error) {
+    console.error("Update Product Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update product",
+      error: error.message,
+    });
+  }
+};
+
+
+const updateProductImages = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1️⃣ Validate files
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload at least one image",
+      });
+    }
+
+    if (req.files.length > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "You can upload a maximum of 5 images at a time",
+      });
+    }
+
+    // 2️⃣ Check product
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // 3️⃣ Upload to Cloudinary
+    const uploadedImages = await Promise.all(
+      req.files.map((file) =>
+        cloudinary.uploader.upload(file.path, {
+          folder: "maaya-products",
+          timeout: 60000,
+        })
+      )
+    );
+
+    const imageUrls = uploadedImages.map((img) => img.secure_url);
+
+    // 4️⃣ Append images (NOT replacing)
+    product.images.push(...imageUrls);
+
+    await product.save();
+
+    // 5️⃣ Cleanup local files
+    await Promise.all(
+      req.files.map((file) => fs.unlink(file.path).catch(() => {}))
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Product images uploaded successfully",
+      images: product.images,
+    });
+
+  } catch (error) {
+    console.error("Image upload error:", error);
+
+    // Cleanup if error
+    if (req.files) {
+      await Promise.all(
+        req.files.map((file) => fs.unlink(file.path).catch(() => {}))
+      );
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to upload images",
+      error: error.message,
+    });
+  }
+};
+
+
+module.exports = { createProduct,getAllProducts,getProductById,goLiveBulkProducts,goLiveSingleProduct,updateProduct,updateProductImages };

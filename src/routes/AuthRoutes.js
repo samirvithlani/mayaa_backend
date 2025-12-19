@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../controllers/AuthController");
-
+const authMiddlewre = require("../middlewares/AuthMiddlewre"); // your auth middleware
 router.post("/signup", auth.signup);
 router.post("/login/email", auth.loginWithEmail);
 router.post("/login/mobile", auth.loginWithMobile);
@@ -22,6 +22,6 @@ router.post("/token/refresh", auth.refreshToken);
 router.post("/logout", auth.logout);
 
 router.get("/users",auth.getAllUsers)
-//router.get("/user/:id",auth)
+router.get("/userprofile",authMiddlewre("ADMIN","USER"),auth.getMyProfile)
 
 module.exports = router;

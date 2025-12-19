@@ -93,6 +93,7 @@ const worker = new Worker(
             metaTitle: row.metaTitle,
             metaDescription: row.metaDescription,
             metaKeywords: safeArray(row.metaKeywords),
+            isLive:false
           });
         } catch (err) {
           console.log("Row import error:", err.message);

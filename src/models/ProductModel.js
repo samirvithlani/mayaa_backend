@@ -105,6 +105,9 @@ const productSchema = new Schema(
     
 
     lowStockAlert: { type: Number, default: 5 },
+    isLive:{
+      type:Boolean
+    }
   },
   { timestamps: true }
 );

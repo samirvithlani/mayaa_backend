@@ -29,6 +29,14 @@ app.use("/product",productRoutes)
 const productImportRoutes = require("./src/routes/ProductImportRoutes");
 app.use("/productimport",productImportRoutes)
 
+const addressRoutes = require("./src/routes/AddressRoutes")
+app.use("/address",addressRoutes)
+
+const locationRoutes = require("./src/routes/locationRoutes")
+app.use("/location",locationRoutes)
+
+const orderRoutes = require("./src/routes/OrderRoutes")
+app.use("/order",orderRoutes)
 
 const PORT = config.PORT || 3000
 app.listen(PORT,()=>{

@@ -422,4 +422,31 @@ exports.getAllUsers = async (req, res) => {
     });
   }
 };
+// --------- Get Logged-in User Profile
+exports.getMyProfile = async (req, res) => {
+  try {
+    
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile fetched successfully",
+      user: req.user,
+    });
+
+  } catch (error) {
+    console.error("Get profile error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching profile",
+    });
+  }
+};
+
 
