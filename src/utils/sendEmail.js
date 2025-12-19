@@ -1,23 +1,29 @@
-// utils/sendEmail.js
 const nodemailer = require("nodemailer");
 
+// Create transporter using Gmail service
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT || 587),
-  secure: false,
+  service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: process.env.EMAIL_USER, // your gmail address
+    pass: process.env.EMAIL_PASS, // gmail APP PASSWORD (not normal password)
+  },
+});
+
+// Optional: verify SMTP connection on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ Gmail SMTP Error:", error);
+  } else {
+    console.log("✅ Gmail SMTP Ready");
   }
 });
 
 exports.sendEmail = async ({ to, subject, html, text }) => {
-  const info = await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+  return transporter.sendMail({
+    from: `"Maaya" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     text,
-    html
+    html,
   });
-  return info;
 };

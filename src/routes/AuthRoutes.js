@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../controllers/AuthController");
 const authMiddlewre = require("../middlewares/AuthMiddlewre"); // your auth middleware
+const otpRateLimit = require("../middlewares/otpRateLimit")
 router.post("/signup", auth.signup);
 router.post("/login/email", auth.loginWithEmail);
 router.post("/login/mobile", auth.loginWithMobile);
@@ -23,5 +24,10 @@ router.post("/logout", auth.logout);
 
 router.get("/users",auth.getAllUsers)
 router.get("/userprofile",authMiddlewre("ADMIN","USER"),auth.getMyProfile)
+
+router.post("/signup/send-otp", otpRateLimit, auth.sendSignupOTP);
+router.post("/signup/verify-otp", auth.verifySignupOTP);
+router.post("/signup/complete", auth.completeSignup);
+
 
 module.exports = router;

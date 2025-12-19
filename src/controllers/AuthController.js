@@ -4,8 +4,9 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/UserModel");
 const RefreshToken = require("../models/RefreshToken");
 const { generateAccessToken, generateRefreshToken } = require("../utils/generateToken");
-const { generateOTP, otpExpiry } = require("../utils/generateOTP");
+const { generateOTP } = require("../utils/generateOTP");
 const { sendEmail } = require("../utils/sendEmail");
+const redis = require("../config/redis")
 
 
 const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
@@ -448,5 +449,110 @@ exports.getMyProfile = async (req, res) => {
     });
   }
 };
+exports.sendSignupOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email)
+      return res.status(400).json({ message: "Email is required" });
+
+    // 🔁 Resend cooldown
+    const resendKey = `signup:resend:${email}`;
+    if (await redis.get(resendKey)) {
+      return res.status(429).json({
+        message: "Please wait 60 seconds before resending OTP",
+      });
+    }
+
+    const otp = generateOTP();
+
+    await redis.set(`signup:otp:${email}`, otp, "EX", 600);
+    await redis.set(`signup:attempts:${email}`, 0, "EX", 600);
+    await redis.set(resendKey, 1, "EX", 60);
+
+    await sendEmail({
+      to: email,
+      subject: "Signup OTP",
+      html: `<h2>${otp}</h2><p>Valid for 10 minutes</p>`,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (err) {
+    console.log(err)
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.verifySignupOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const otpKey = `signup:otp:${email}`;
+    const attemptsKey = `signup:attempts:${email}`;
+
+    const savedOTP = await redis.get(otpKey);
+    if (!savedOTP)
+      return res.status(400).json({ message: "OTP expired or not found" });
+
+    let attempts = Number(await redis.get(attemptsKey)) || 0;
+
+    if (attempts >= 3) {
+      await redis.del(otpKey, attemptsKey);
+      return res.status(403).json({
+        message: "OTP attempts exceeded. Signup again.",
+      });
+    }
+
+    if (savedOTP !== otp) {
+      attempts += 1;
+      await redis.set(attemptsKey, attempts, "EX", 600);
+
+      return res.status(401).json({
+        message: `Invalid OTP. Attempts left: ${3 - attempts}`,
+      });
+    }
+
+    // ✅ OTP VERIFIED
+    await redis.del(otpKey, attemptsKey);
+    await redis.set(`signup:verified:${email}`, 1, "EX", 900); // 15 min
+
+    res.json({ message: "OTP verified successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.completeSignup = async (req, res) => {
+  try {
+    const { firstName, lastName, email, password, roleId } = req.body;
+
+    const verified = await redis.get(`signup:verified:${email}`);
+    if (!verified) {
+      return res.status(403).json({
+        message: "OTP verification required",
+      });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      password: hashed,
+      roleId,
+    });
+
+    await redis.del(`signup:verified:${email}`);
+
+    res.status(201).json({
+      message: "Signup successful",
+      user,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 
