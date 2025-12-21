@@ -25,7 +25,7 @@ router.post("/logout", auth.logout);
 router.get("/users",auth.getAllUsers)
 router.get("/userprofile",authMiddlewre("ADMIN","USER"),auth.getMyProfile)
 
-router.post("/signup/send-otp", otpRateLimit, auth.sendSignupOTP);
+router.post("/signup/send-otp", auth.sendSignupOTP);
 router.post("/signup/verify-otp", auth.verifySignupOTP);
 router.post("/signup/complete", auth.completeSignup);
 

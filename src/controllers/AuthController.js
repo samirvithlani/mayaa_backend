@@ -167,6 +167,7 @@ exports.loginWithApple = async (req, res) => {
 
 // --------- Request OTP (for login or password reset) - email or mobile
 exports.requestOtp = async (req, res) => {
+  console.log("here")
   try {
     const { email, contactNo, purpose } = req.body;
     if (!email && !contactNo) return res.status(400).json({ message: "email or contactNo required" });
@@ -451,6 +452,7 @@ exports.getMyProfile = async (req, res) => {
 };
 exports.sendSignupOTP = async (req, res) => {
   try {
+    console.log("here..")
     const { email } = req.body;
 
     if (!email)

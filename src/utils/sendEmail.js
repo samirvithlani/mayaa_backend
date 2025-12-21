@@ -1,68 +1,34 @@
-// const nodemailer = require("nodemailer");
-
-// // Create transporter using Gmail service
-// const transporter = nodemailer.createTransport({
-//   service: "gmail",
-//   auth: {
-//     user: process.env.EMAIL_USER, // your gmail address
-//     pass: process.env.EMAIL_PASS, // gmail APP PASSWORD (not normal password)
-//   },
-// });
-
-// // Optional: verify SMTP connection on startup
-// transporter.verify((error, success) => {
-//   if (error) {
-//     console.error("❌ Gmail SMTP Error:", error);
-//   } else {
-//     console.log("✅ Gmail SMTP Ready");
-//   }
-// });
-
-// exports.sendEmail = async ({ to, subject, html, text }) => {
-//   return transporter.sendMail({
-//     from: `"Maaya" <${process.env.EMAIL_USER}>`,
-//     to,
-//     subject,
-//     text,
-//     html,
-//   });
-// };
-
-
 const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
+const SibApiV3Sdk = require("sib-api-v3-sdk");
 
-// Decide provider
 const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || "gmail";
-console.log(EMAIL_PROVIDER)
-// ---------- GMAIL SETUP ----------
-let gmailTransporter = null;
+console.log(EMAIL_PROVIDER);
+/* ---------------- RESEND ---------------- */
+const resend = new Resend(process.env.RESEND_API_KEY);
 
+/* ---------------- BREVO ---------------- */
+const brevoClient = SibApiV3Sdk.ApiClient.instance;
+brevoClient.authentications["api-key"].apiKey = process.env.BREVO_API_KEY;
+
+const brevoApi = new SibApiV3Sdk.TransactionalEmailsApi();
+
+/* ---------------- GMAIL ---------------- */
+let gmailTransporter = null;
 if (EMAIL_PROVIDER === "gmail") {
   gmailTransporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // APP PASSWORD
+      pass: process.env.EMAIL_PASS,
     },
-  });
-
-  // Verify only in gmail mode
-  gmailTransporter.verify((error) => {
-    if (error) {
-      console.error("❌ Gmail SMTP Error:", error.message);
-    } else {
-      console.log("✅ Gmail SMTP Ready");
-    }
   });
 }
 
-// ---------- RESEND SETUP ----------
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// ---------- MAIN SEND FUNCTION ----------
+/* ---------------- SEND EMAIL ---------------- */
 exports.sendEmail = async ({ to, subject, html, text }) => {
   switch (EMAIL_PROVIDER) {
+    /* ✅ GMAIL (LOCAL ONLY) */
     case "gmail":
       return gmailTransporter.sendMail({
         from: `"Maaya" <${process.env.EMAIL_USER}>`,
@@ -72,12 +38,26 @@ exports.sendEmail = async ({ to, subject, html, text }) => {
         html,
       });
 
+    /* ✅ RESEND */
     case "resend":
-      return resend.emails.send({
-        from: "Maaya <onboarding@resend.dev>", // can be changed later
-        to,
+      return await resend.emails.send({
+        from: "Maaya <onboarding@resend.dev>",
+        to: Array.isArray(to) ? to : [to],
         subject,
-        html: html || `<p>${text}</p>`,
+        html: html || `<p>${text || ""}</p>`,
+      });
+
+    /* ✅ BREVO (NEW CASE) */
+    case "brevo":
+      return await brevoApi.sendTransacEmail({
+        sender: {
+          name: "Maaya",
+          email: "contact@brevo.com", // TEMP
+        },
+        to: [{ email: to }],
+        subject,
+        textContent: text,
+        htmlContent: html,
       });
 
     default:
