@@ -1,9 +1,9 @@
 const Cart = require("../models/UserCartModel");
-const Product = require("../models/ProductModel");
+const Product = require("../models/ProductModelV2");
 
-// -------------------------------------------
-// CREATE CART for user (called first time only)
-// -------------------------------------------
+/* =====================================================
+   CREATE CART (UNCHANGED – SAFE)
+===================================================== */
 exports.createCart = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -30,9 +30,9 @@ exports.createCart = async (req, res) => {
   }
 };
 
-// -------------------------------------------
-// GET CART BY USER ID
-// -------------------------------------------
+/* =====================================================
+   GET CART BY USER
+===================================================== */
 exports.getCartByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -49,9 +49,9 @@ exports.getCartByUserId = async (req, res) => {
   }
 };
 
-// -------------------------------------------
-// ADD PRODUCT TO CART
-// -------------------------------------------
+/* =====================================================
+   ADD PRODUCT TO CART (FULLY FIXED FOR V2)
+===================================================== */
 exports.addProductToCart = async (req, res) => {
   try {
     const { userId, productId, color, size, quantity } = req.body;
@@ -62,36 +62,55 @@ exports.addProductToCart = async (req, res) => {
     }
 
     const product = await Product.findById(productId);
-    if (!product) return res.status(404).json({ message: "Product not found" });
-
-    // VALIDATE VARIANT - SIZE STOCK
-    const sizeVariant = product.sizes.find((s) => s.size === size);
-    if (!sizeVariant) {
-      return res.status(400).json({ message: "Invalid size variant" });
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
     }
+
+    // 🔹 Find color variant
+    const variant = product.variants.find(
+      (v) => v.color.name === color
+    );
+    if (!variant) {
+      return res.status(400).json({ message: "Color not found" });
+    }
+
+    // 🔹 Find size
+    const sizeVariant = variant.sizes.find(
+      (s) => s.size === size
+    );
+    if (!sizeVariant) {
+      return res.status(400).json({ message: "Size not found" });
+    }
+
     if (sizeVariant.stock < quantity) {
       return res.status(400).json({ message: "Insufficient stock" });
     }
 
-    // CHECK IF ITEM ALREADY IN CART WITH SAME VARIANT
+    // 🔹 CHECK EXISTING ITEM
     const existingItem = cart.items.find(
-      (item) =>
-        item.productId.toString() === productId &&
-        item.color === color &&
-        item.size === size
+      (i) =>
+        i.productId.toString() === productId &&
+        i.color === color &&
+        i.size === size
     );
 
     if (existingItem) {
       existingItem.quantity += quantity;
     } else {
-      cart.items.push({
-        productId,
-        color,
-        size,
-        quantity,
-        priceAtTime: product.price,
-        discountAtTime: product.discountPercentage,
-      });
+    cart.items.push({
+  productId,
+
+  // 🔥 ADD THESE TWO LINES
+  name: product.name,
+  image: variant.images?.[0] || product.images?.[0],
+
+  color,
+  size,
+  quantity,
+  priceAtTime: sizeVariant.price,
+  discountAtTime: 0,
+});
+
     }
 
     await cart.save();
@@ -100,17 +119,19 @@ exports.addProductToCart = async (req, res) => {
       message: "Product added to cart",
       cart,
     });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
   }
 };
 
-// -------------------------------------------
-// UPDATE CART ITEM (quantity, color, size)
-// -------------------------------------------
+
+/* =====================================================
+   UPDATE CART ITEM (ONLY QUANTITY – SAFE)
+===================================================== */
 exports.updateCartItem = async (req, res) => {
   try {
-    const { userId, itemId, quantity, color, size } = req.body;
+    const { userId, itemId, quantity } = req.body;
 
     const cart = await Cart.findOne({ userId });
     if (!cart) return res.status(404).json({ message: "Cart not found" });
@@ -118,18 +139,12 @@ exports.updateCartItem = async (req, res) => {
     const item = cart.items.id(itemId);
     if (!item) return res.status(404).json({ message: "Item not found" });
 
-    // UPDATE QUANTITY
-    if (quantity !== undefined) {
-      if (quantity <= 0) {
-        item.remove(); // delete item automatically
-      } else {
-        item.quantity = quantity;
-      }
+    // Only quantity update allowed
+    if (quantity <= 0) {
+      item.remove();
+    } else {
+      item.quantity = quantity;
     }
-
-    // UPDATE COLOR OR SIZE
-    if (color) item.color = color;
-    if (size) item.size = size;
 
     await cart.save();
 
@@ -142,9 +157,9 @@ exports.updateCartItem = async (req, res) => {
   }
 };
 
-// -------------------------------------------
-// REMOVE PRODUCT FROM CART
-// -------------------------------------------
+/* =====================================================
+   REMOVE ITEM FROM CART
+===================================================== */
 exports.removeCartItem = async (req, res) => {
   try {
     const { userId, itemId } = req.body;
@@ -152,7 +167,6 @@ exports.removeCartItem = async (req, res) => {
     const cart = await Cart.findOne({ userId });
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
-    // Remove item manually (safe method)
     cart.items = cart.items.filter(
       (i) => i._id.toString() !== itemId.toString()
     );
@@ -163,16 +177,14 @@ exports.removeCartItem = async (req, res) => {
       message: "Item removed",
       cart,
     });
-
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 };
 
-
-// -------------------------------------------
-// CLEAR CART
-// -------------------------------------------
+/* =====================================================
+   CLEAR CART
+===================================================== */
 exports.clearCart = async (req, res) => {
   try {
     const { userId } = req.body;

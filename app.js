@@ -26,13 +26,19 @@ app.use("/cart",cartRoutes)
 const productRoutes = require("./src/routes/ProductRoutes")
 app.use("/product",productRoutes)
 
+const productRoutesV2 = require("./src/routes/ProductRoutesV2")
+app.use("/productv2",productRoutesV2)
+
 const productImportRoutes = require("./src/routes/ProductImportRoutes");
 app.use("/productimport",productImportRoutes)
+
+const productImportRoutesv2 = require("./src/routes/ProductImportRoutesV2");
+app.use("/productimportv2",productImportRoutesv2)
 
 const addressRoutes = require("./src/routes/AddressRoutes")
 app.use("/address",addressRoutes)
 
-const locationRoutes = require("./src/routes/locationRoutes")
+const locationRoutes = require("./src/routes/LocationRoutes")
 app.use("/location",locationRoutes)
 
 const orderRoutes = require("./src/routes/OrderRoutes")
