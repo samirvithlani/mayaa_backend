@@ -54,10 +54,12 @@ const variantSchema = new Schema(
       },
     },
 
-    images: {
-      type: [String], // color-specific images
-      required: true,
-    },
+    images: [
+      {
+        url: { type: String, required: true },
+        key: { type: String, required: true },
+      },
+    ],
 
     sizes: {
       type: [variantSizeSchema],
@@ -87,7 +89,7 @@ const productSchema = new Schema(
 
     brand: {
       type: String,
-      
+
       trim: true,
     },
 
@@ -127,7 +129,6 @@ const productSchema = new Schema(
     ageGroup: {
       type: String,
       enum: ["Kids", "Adults"],
-      
     },
 
     gender: {

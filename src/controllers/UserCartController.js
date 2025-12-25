@@ -52,6 +52,72 @@ exports.getCartByUserId = async (req, res) => {
 /* =====================================================
    ADD PRODUCT TO CART (FULLY FIXED FOR V2)
 ===================================================== */
+// exports.addProductToCart = async (req, res) => {
+//   try {
+//     const { userId, productId, color, size, quantity } = req.body;
+
+//     let cart = await Cart.findOne({ userId });
+//     if (!cart) {
+//       cart = await Cart.create({ userId, items: [] });
+//     }
+
+//     const product = await Product.findById(productId);
+//     if (!product) {
+//       return res.status(404).json({ message: "Product not found" });
+//     }
+
+//     // 🔹 Find color variant
+//     const variant = product.variants.find((v) => v.color.name === color);
+//     if (!variant) {
+//       return res.status(400).json({ message: "Color not found" });
+//     }
+
+//     // 🔹 Find size
+//     const sizeVariant = variant.sizes.find((s) => s.size === size);
+//     if (!sizeVariant) {
+//       return res.status(400).json({ message: "Size not found" });
+//     }
+
+//     if (sizeVariant.stock < quantity) {
+//       return res.status(400).json({ message: "Insufficient stock" });
+//     }
+
+//     // 🔹 CHECK EXISTING ITEM
+//     const existingItem = cart.items.find(
+//       (i) =>
+//         i.productId.toString() === productId &&
+//         i.color === color &&
+//         i.size === size
+//     );
+
+//     if (existingItem) {
+//       existingItem.quantity += quantity;
+//     } else {
+//       cart.items.push({
+//         productId,
+//         // 🔥 ADD THESE TWO LINES
+//         name: product.name,
+//         image: variant.images?.[0] || product.images?.[0],
+
+//         color,
+//         size,
+//         quantity,
+//         priceAtTime: sizeVariant.price,
+//         discountAtTime: 0,
+//       });
+//     }
+
+//     await cart.save();
+
+//     return res.status(200).json({
+//       message: "Product added to cart",
+//       cart,
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     return res.status(500).json({ error: err.message });
+//   }
+// };
 exports.addProductToCart = async (req, res) => {
   try {
     const { userId, productId, color, size, quantity } = req.body;
@@ -68,7 +134,7 @@ exports.addProductToCart = async (req, res) => {
 
     // 🔹 Find color variant
     const variant = product.variants.find(
-      (v) => v.color.name === color
+      v => v.color.name.toLowerCase() === color.toLowerCase()
     );
     if (!variant) {
       return res.status(400).json({ message: "Color not found" });
@@ -76,41 +142,45 @@ exports.addProductToCart = async (req, res) => {
 
     // 🔹 Find size
     const sizeVariant = variant.sizes.find(
-      (s) => s.size === size
+      s => s.size.toUpperCase() === size.toUpperCase()
     );
     if (!sizeVariant) {
       return res.status(400).json({ message: "Size not found" });
     }
 
-    if (sizeVariant.stock < quantity) {
-      return res.status(400).json({ message: "Insufficient stock" });
-    }
-
-    // 🔹 CHECK EXISTING ITEM
+    // 🔹 Find existing cart item
     const existingItem = cart.items.find(
-      (i) =>
+      i =>
         i.productId.toString() === productId &&
-        i.color === color &&
-        i.size === size
+        i.color.toLowerCase() === color.toLowerCase() &&
+        i.size.toUpperCase() === size.toUpperCase()
     );
 
     if (existingItem) {
-      existingItem.quantity += quantity;
+      const newQty = existingItem.quantity + quantity;
+
+      if (newQty > sizeVariant.stock) {
+        return res.status(400).json({
+          message: `Only ${sizeVariant.stock} items left in stock`,
+        });
+      }
+
+      existingItem.quantity = newQty;
     } else {
-    cart.items.push({
-  productId,
+      if (quantity > sizeVariant.stock) {
+        return res.status(400).json({ message: "Insufficient stock" });
+      }
 
-  // 🔥 ADD THESE TWO LINES
-  name: product.name,
-  image: variant.images?.[0] || product.images?.[0],
-
-  color,
-  size,
-  quantity,
-  priceAtTime: sizeVariant.price,
-  discountAtTime: 0,
-});
-
+      cart.items.push({
+        productId,
+        name: product.name,
+        image: variant.images?.[0] || "",
+        color,
+        size,
+        quantity,
+        priceAtTime: sizeVariant.price,
+        discountAtTime: 0,
+      });
     }
 
     await cart.save();
@@ -124,7 +194,6 @@ exports.addProductToCart = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 };
-
 
 /* =====================================================
    UPDATE CART ITEM (ONLY QUANTITY – SAFE)

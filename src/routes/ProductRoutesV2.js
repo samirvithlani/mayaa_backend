@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const productController = require("../controllers/ProductControllerV2");
-const upload = require("../middlewares/uploadMiddleware");
+//const upload = require("../middlewares/uploadMiddleware");
+const upload = require("../middlewares/uploadMiddlewares3");
 router.post("/", upload.array("images", 5), productController.createProduct);
 router.get("/", productController.getAllProducts);
 router.get("/:id", productController.getProductById);

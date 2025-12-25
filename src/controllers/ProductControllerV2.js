@@ -6,6 +6,71 @@ const fs = require("fs/promises");
 /* =====================================================
    CREATE PRODUCT (VARIANT-BASED)
 ===================================================== */
+// const createProduct = async (req, res) => {
+//   try {
+//     // 1️⃣ Validate images
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "At least one product image is required",
+//       });
+//     }
+
+//     // 2️⃣ Parse JSON fields
+//     try {
+//       req.body.variants = JSON.parse(req.body.variants || "[]");
+//       req.body.productTags = JSON.parse(req.body.productTags || "[]");
+//       req.body.highlights = JSON.parse(req.body.highlights || "[]");
+//       req.body.careInstructions = JSON.parse(
+//         req.body.careInstructions || "[]"
+//       );
+//       req.body.seo = JSON.parse(req.body.seo || "{}");
+//     } catch (err) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid JSON format",
+//         error: err.message,
+//       });
+//     }
+
+//     if (!req.body.variants || req.body.variants.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "At least one variant is required",
+//       });
+//     }
+
+//     // 3️⃣ Extract URL + KEY from S3
+//     const images = req.files.map((file) => ({
+//       url: file.location,
+//       key: file.key,
+//     }));
+
+//     // 4️⃣ Assign images to FIRST variant
+//     req.body.variants[0].images = images;
+
+//     // 5️⃣ Create product
+//     const product = await Product.create({
+//       ...req.body,
+//       status: "active",
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Product created successfully",
+//       data: product,
+//     });
+//   } catch (error) {
+//     console.error("Create product error:", error);
+
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to create product",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const createProduct = async (req, res) => {
   try {
     // 1️⃣ Validate images
@@ -21,7 +86,9 @@ const createProduct = async (req, res) => {
       req.body.variants = JSON.parse(req.body.variants || "[]");
       req.body.productTags = JSON.parse(req.body.productTags || "[]");
       req.body.highlights = JSON.parse(req.body.highlights || "[]");
-      req.body.careInstructions = JSON.parse(req.body.careInstructions || "[]");
+      req.body.careInstructions = JSON.parse(
+        req.body.careInstructions || "[]"
+      );
       req.body.seo = JSON.parse(req.body.seo || "{}");
     } catch (err) {
       return res.status(400).json({
@@ -38,29 +105,20 @@ const createProduct = async (req, res) => {
       });
     }
 
-    // 3️⃣ Upload images to Cloudinary
-    const uploadedImages = await Promise.all(
-      req.files.map((file) =>
-        cloudinary.uploader.upload(file.path, {
-          folder: "maaya-products",
-          timeout: 60000,
-        })
-      )
-    );
+    // 3️⃣ Extract URL + KEY from S3
+    const images = req.files.map((file) => ({
+      url: file.location,
+      key: file.key,
+    }));
 
-    const imageUrls = uploadedImages.map((img) => img.secure_url);
-
-    // 4️⃣ Assign images to FIRST variant (simple & clean)
-    req.body.variants[0].images = imageUrls;
+    // 4️⃣ Assign images to FIRST variant
+    req.body.variants[0].images = images;
 
     // 5️⃣ Create product
     const product = await Product.create({
       ...req.body,
       status: "active",
     });
-
-    // 6️⃣ Cleanup local files
-    await Promise.all(req.files.map((f) => fs.unlink(f.path)));
 
     res.status(201).json({
       success: true,
@@ -70,12 +128,6 @@ const createProduct = async (req, res) => {
   } catch (error) {
     console.error("Create product error:", error);
 
-    if (req.files) {
-      await Promise.all(
-        req.files.map((f) => fs.unlink(f.path).catch(() => {}))
-      );
-    }
-
     res.status(500).json({
       success: false,
       message: "Failed to create product",
@@ -83,6 +135,7 @@ const createProduct = async (req, res) => {
     });
   }
 };
+
 
 /* =====================================================
    GET ALL PRODUCTS (FILTER + SORT + PAGINATION)
@@ -356,8 +409,9 @@ const updateProduct = async (req, res) => {
 const updateProductImages = async (req, res) => {
   try {
     const { id } = req.params;
-    const { color } = req.body; // This might be undefined
+    const { color } = req.body;
 
+    // 1️⃣ Validate images
     if (!req.files || !req.files.length) {
       return res.status(400).json({
         success: false,
@@ -365,18 +419,22 @@ const updateProductImages = async (req, res) => {
       });
     }
 
+    // 2️⃣ Find product
     const product = await Product.findById(id);
     if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
     }
 
-    // If no color specified, update the first variant (default behavior)
+    // 3️⃣ Find variant
     let variant;
+
     if (color) {
       variant = product.variants.find(
-        (v) => v.color.name.toLowerCase() === color.toLowerCase()
+        (v) =>
+          v.color?.name?.toLowerCase() === color.toLowerCase()
       );
 
       if (!variant) {
@@ -386,7 +444,6 @@ const updateProductImages = async (req, res) => {
         });
       }
     } else {
-      // Default to first variant if no color specified
       variant = product.variants[0];
 
       if (!variant) {
@@ -397,33 +454,30 @@ const updateProductImages = async (req, res) => {
       }
     }
 
-    const uploadedImages = await Promise.all(
-      req.files.map((file) =>
-        cloudinary.uploader.upload(file.path, {
-          folder: "maaya-products",
-          timeout: 60000,
-        })
-      )
-    );
+    // 4️⃣ Images already uploaded to S3 by multer-s3
+    const newImages = req.files.map((file) => ({
+      url: file.location,
+      key: file.key,
+    }));
 
-    variant.images.push(...uploadedImages.map((i) => i.secure_url));
+    // 5️⃣ Append images to variant
+    variant.images.push(...newImages);
 
+    // 6️⃣ Save product
     await product.save();
-
-    // Clean up uploaded files
-    await Promise.all(req.files.map((f) => fs.unlink(f.path).catch(() => {})));
 
     res.status(200).json({
       success: true,
       message: "Variant images updated",
       images: variant.images,
       variant: {
-        color: variant.color.name,
+        color: variant.color?.name,
         totalImages: variant.images.length,
       },
     });
   } catch (error) {
-    console.log(error);
+    console.error("Update product images error:", error);
+
     res.status(500).json({
       success: false,
       message: "Failed to update images",
@@ -431,6 +485,7 @@ const updateProductImages = async (req, res) => {
     });
   }
 };
+
 
 /* =====================================================
    EXPORTS
