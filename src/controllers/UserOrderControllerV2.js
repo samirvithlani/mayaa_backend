@@ -259,6 +259,11 @@ exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("userId", "name email")
+      .populate({
+        path: "items.productId", // Points to the field inside the array
+        model: "Productv2",        // Explicitly state model (optional if ref is in schema, but good for safety)
+  
+      })
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: orders });

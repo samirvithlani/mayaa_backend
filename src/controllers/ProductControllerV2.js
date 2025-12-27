@@ -86,9 +86,7 @@ const createProduct = async (req, res) => {
       req.body.variants = JSON.parse(req.body.variants || "[]");
       req.body.productTags = JSON.parse(req.body.productTags || "[]");
       req.body.highlights = JSON.parse(req.body.highlights || "[]");
-      req.body.careInstructions = JSON.parse(
-        req.body.careInstructions || "[]"
-      );
+      req.body.careInstructions = JSON.parse(req.body.careInstructions || "[]");
       req.body.seo = JSON.parse(req.body.seo || "{}");
     } catch (err) {
       return res.status(400).json({
@@ -136,7 +134,6 @@ const createProduct = async (req, res) => {
   }
 };
 
-
 /* =====================================================
    GET ALL PRODUCTS (FILTER + SORT + PAGINATION)
 ===================================================== */
@@ -162,6 +159,7 @@ const getAllProducts = async (req, res) => {
       sort,
       page = 1,
       limit = 20,
+      size,
     } = req.query;
 
     let query = {};
@@ -192,6 +190,19 @@ const getAllProducts = async (req, res) => {
       }
     } else if (category) {
       query.productCategoryId = category;
+    }
+    if (size) {
+      query.variants = {
+        ...(query.variants || {}),
+        $elemMatch: {
+          ...(query.variants?.$elemMatch || {}),
+          sizes: {
+            $elemMatch: {
+              size: size, // "0-3", "M", "L", etc
+            },
+          },
+        },
+      };
     }
 
     // =========================
@@ -272,7 +283,7 @@ const getAllProducts = async (req, res) => {
 
       Product.countDocuments(query),
     ]);
-
+    //console.log(products)
     // =========================
     // ✅ RESPONSE
     // =========================
@@ -433,8 +444,7 @@ const updateProductImages = async (req, res) => {
 
     if (color) {
       variant = product.variants.find(
-        (v) =>
-          v.color?.name?.toLowerCase() === color.toLowerCase()
+        (v) => v.color?.name?.toLowerCase() === color.toLowerCase()
       );
 
       if (!variant) {
@@ -485,7 +495,6 @@ const updateProductImages = async (req, res) => {
     });
   }
 };
-
 
 /* =====================================================
    EXPORTS
